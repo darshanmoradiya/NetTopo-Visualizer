@@ -1,0 +1,5 @@
+{
+  "name": "NetTopo Visualizer",
+  "description": "A comprehensive network topology visualization dashboard that renders devices, connections, and neighbors from JSON data using D3.js and Recharts.",
+  "requestFramePermissions": []
+}
