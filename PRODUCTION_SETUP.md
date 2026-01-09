@@ -52,9 +52,33 @@ npm run build
 sudo ./deploy.sh
 ```
 
-### 2. One-Time Setup (Automated)
+### 2. Setup Firewall Log API (NEW)
 
-**Run this single command:**
+The app now shows **real firewall logs** from `/home/ubuntu/firewall_sim/firewall.log`.
+
+```bash
+# Setup log API service (one-time)
+chmod +x setup_log_api.sh
+sudo bash setup_log_api.sh
+```
+
+This creates:
+- Flask API server on port 5000
+- Systemd service `firewall-log-api` (auto-starts on boot)
+- Parses firewall logs and filters by MAC address
+- Returns latest 100 logs per device
+
+**Verify log API:**
+```bash
+# Check API is running
+sudo systemctl status firewall-log-api
+curl http://localhost:5000/api/health
+
+# Test with a MAC address
+curl http://localhost:5000/api/logs/tail/00-42-38-C7-26-7B
+```
+
+### 3. Setup Auto-Update System
 
 ```bash
 # Copy scripts from shared folder (if needed)
@@ -78,14 +102,21 @@ sudo bash SETUP_ONCE.sh
 ### 3. Verify Setup
 
 ```bash
-# Check timer status (no password needed)
+# Check topology update timer status (no password needed)
 sudo systemctl status update-topology-scan.timer
+
+# Check firewall log API
+sudo systemctl status firewall-log-api
+curl http://localhost:5000/api/health
 
 # Check data file
 ls -lh /var/www/reactapp/data/raw_data_complete.json
 
-# View recent logs
+# View recent topology update logs
 sudo journalctl -u update-topology-scan -n 20
+
+# View log API logs
+sudo journalctl -u firewall-log-api -f
 ```
 
 ## Management Commands

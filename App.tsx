@@ -160,61 +160,101 @@ const App: React.FC = () => {
     }
   };
 
-  const handlePing = () => {
-    if (!selectedNode) return;
+  const handlePing = async () => {
+    if (!selectedNode || isPinging) return;
+    
     setIsPinging(true);
     setPingResult(null);
     
-    // Simulate network delay
-    setTimeout(() => {
-        const isOnline = selectedNode.state === 'ACTIVE' || selectedNode.type === 'Switch';
-        const success = isOnline && Math.random() > 0.1; 
-        
-        setIsPinging(false);
-        if (success) {
-            const time = Math.floor(Math.random() * 20) + 1;
-            setPingResult({
-                status: 'success',
-                msg: `Reply from ${selectedNode.ip}: bytes=32 time=${time}ms TTL=64`
-            });
-        } else {
-            setPingResult({
-                status: 'error',
-                msg: `Request timed out. Destination host unreachable.`
-            });
-        }
-        setTimeout(() => {
-            if (selectedNode) setPingResult(null);
-        }, 5000);
-    }, 1500);
+    try {
+      // Call real ping API
+      const response = await fetch(`http://localhost:5000/api/ping/${selectedNode.ip}`, {
+        cache: 'no-store'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.packets_received > 0) {
+        setPingResult({
+          status: 'success',
+          msg: `Reply from ${data.ip}: ${data.packets_received}/${data.packets_sent} packets received (${100 - data.packet_loss}% success)\nRound-trip: min=${data.min_ms}ms avg=${data.avg_ms}ms max=${data.max_ms}ms`
+        });
+      } else {
+        setPingResult({
+          status: 'error',
+          msg: `Request timed out for ${data.ip}. ${data.packet_loss}% packet loss.\nDestination host unreachable.`
+        });
+      }
+    } catch (error) {
+      console.error('Ping error:', error);
+      setPingResult({
+        status: 'error',
+        msg: `Failed to ping ${selectedNode.ip}: ${error}\nMake sure the API server is running.`
+      });
+    } finally {
+      setIsPinging(false);
+      // Clear result after 8 seconds
+      setTimeout(() => {
+        if (selectedNode) setPingResult(null);
+      }, 8000);
+    }
   };
 
-  const handleViewLogs = () => {
+  const handleViewLogs = async () => {
     if (!selectedNode) return;
     
-    const levels = ['INFO', 'WARN', 'ERROR', 'DEBUG'];
-    const messages = [
-        `Interface eth0 connection established`,
-        `SSH session opened for user admin from 10.0.0.5`,
-        `Packet dropped: IN=eth0 OUT= MAC=${selectedNode.mac.substring(0,8)}...`,
-        `Cron job executed: /usr/bin/daily_backup`,
-        `System load average: 0.12, 0.08, 0.05`,
-        `DHCPDISCOVER received on eth0`,
-        `DHCPOFFER sent to ${selectedNode.ip}`,
-        `SNMP query received from management server`,
-        `Kernel: [1234.567] link is up`,
-        `Authentication failed for user root`
-    ];
-    
-    const logs = Array.from({ length: 15 }).map((_, i) => ({
-        id: i,
-        timestamp: new Date(Date.now() - Math.floor(Math.random() * 86400000)).toISOString(),
-        level: levels[Math.floor(Math.random() * (selectedNode.state === 'ACTIVE' ? 2 : levels.length))],
-        message: messages[Math.floor(Math.random() * messages.length)]
-    })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    
-    setDeviceLogs(logs);
     setShowLogsModal(true);
+    setDeviceLogs([{ id: 0, timestamp: new Date().toISOString(), level: 'INFO', message: 'Loading logs...' }]);
+    
+    try {
+      // Fetch real firewall logs from API
+      const response = await fetch(`http://localhost:5000/api/logs/tail/${selectedNode.mac}`, {
+        cache: 'no-store'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.logs && data.logs.length > 0) {
+        // Transform firewall logs to display format
+        const formattedLogs = data.logs.map((log: any, index: number) => ({
+          id: index,
+          timestamp: log.timestamp,
+          level: log.severity || 'INFO',
+          message: `${log.protocol} ${log.src_ip}:${log.src_port} → ${log.dst_ip}:${log.dst_port} | ${log.fw_rule_name} | ${log.in_interface}→${log.out_interface}`,
+          details: {
+            src_mac: log.src_mac,
+            dst_mac: log.dst_mac,
+            src_country: log.src_country,
+            dst_country: log.dst_country,
+            subtype: log.log_subtype
+          }
+        }));
+        setDeviceLogs(formattedLogs);
+      } else {
+        setDeviceLogs([{
+          id: 0,
+          timestamp: new Date().toISOString(),
+          level: 'INFO',
+          message: `No firewall logs found for MAC: ${selectedNode.mac}`
+        }]);
+      }
+    } catch (error) {
+      console.error('Error fetching logs:', error);
+      setDeviceLogs([{
+        id: 0,
+        timestamp: new Date().toISOString(),
+        level: 'ERROR',
+        message: `Failed to load logs: ${error}. Make sure the log API is running on port 5000.`
+      }]);
+    }
   };
 
   return (
@@ -647,19 +687,30 @@ const App: React.FC = () => {
              </div>
              
              <div className="flex-1 overflow-auto bg-[#0a0f1e] p-4 custom-scrollbar">
-                <div className="font-mono text-xs space-y-1">
+                <div className="font-mono text-xs space-y-1.5">
                     {deviceLogs.map((log) => (
-                        <div key={log.id} className="flex gap-3 hover:bg-white/5 p-0.5 rounded px-2 group">
-                            <span className="text-slate-500 shrink-0">{log.timestamp}</span>
-                            <span className={`font-bold shrink-0 w-16 ${
-                                log.level === 'INFO' ? 'text-blue-400' : 
-                                log.level === 'WARN' ? 'text-yellow-400' : 
-                                log.level === 'ERROR' ? 'text-red-400' : 'text-slate-400'
-                            }`}>[{log.level}]</span>
-                            <span className="text-slate-300 break-all">{log.message}</span>
+                        <div key={log.id} className="flex gap-3 hover:bg-white/5 p-2 rounded group border-l-2 border-transparent hover:border-blue-500/50 transition-all">
+                            <span className="text-slate-500 shrink-0 w-28">{new Date(log.timestamp).toLocaleString()}</span>
+                            <span className={`font-bold shrink-0 w-20 uppercase text-[10px] px-2 py-0.5 rounded ${
+                                log.level === 'Information' || log.level === 'INFO' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 
+                                log.level === 'Warning' || log.level === 'WARN' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 
+                                log.level === 'Critical' || log.level === 'ERROR' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 
+                                'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                            }`}>{log.level}</span>
+                            <div className="flex-1">
+                                <span className="text-slate-200">{log.message}</span>
+                                {log.details && (
+                                    <div className="text-[10px] text-slate-500 mt-1 space-x-2">
+                                        <span>{log.details.src_country} → {log.details.dst_country}</span>
+                                        <span>• {log.details.subtype}</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ))}
-                    <div className="animate-pulse text-slate-500 mt-2">_</div>
+                    {deviceLogs.length === 0 && (
+                        <div className="text-center text-slate-500 py-8">No logs available</div>
+                    )}
                 </div>
              </div>
              
