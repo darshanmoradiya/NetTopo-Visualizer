@@ -3,7 +3,6 @@ import TopologyGraph from './components/TopologyGraph';
 import StatsPanel from './components/StatsPanel';
 import DeviceList from './components/DeviceList';
 import { RawNetworkData, GraphNode, DeviceRecord } from './types';
-import { DEFAULT_DATA } from './constants';
 import { LayoutDashboard, Network, List, Upload, Zap, Activity, Info, X, Search, Terminal, Loader2, CheckCircle2, AlertCircle, FileText, Download, ArrowRight, Shield } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -23,15 +22,64 @@ const createGraphNodeFromDevice = (device: DeviceRecord): GraphNode => ({
 });
 
 const App: React.FC = () => {
-  const [data, setData] = useState<RawNetworkData>(DEFAULT_DATA);
+  const [data, setData] = useState<RawNetworkData | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
   const [jsonInput, setJsonInput] = useState<string>('');
   const [showInputModal, setShowInputModal] = useState(false);
   
+  // Data loading states
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  
   // Global Search State
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredDevices, setFilteredDevices] = useState<DeviceRecord[]>([]);
+
+  // Fetch topology data from JSON file
+  useEffect(() => {
+    const fetchTopologyData = async () => {
+      try {
+        setLoadError(null);
+        const response = await fetch('/data/raw_data_complete.json', { 
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch topology data: ${response.status} ${response.statusText}`);
+        }
+        
+        const jsonData = await response.json();
+        
+        // Validate data structure
+        if (!jsonData.data || !jsonData.data.devices || !jsonData.data.connections) {
+          throw new Error('Invalid data format: missing required fields');
+        }
+        
+        setData(jsonData);
+        setLastUpdate(new Date());
+        setIsLoading(false);
+        
+      } catch (error) {
+        console.error('Error fetching topology data:', error);
+        setLoadError(error instanceof Error ? error.message : 'Unknown error occurred');
+        setIsLoading(false);
+      }
+    };
+
+    // Initial fetch
+    fetchTopologyData();
+    
+    // Poll every 5 seconds for updates
+    const interval = setInterval(fetchTopologyData, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Action States
   const [isPinging, setIsPinging] = useState(false);
@@ -41,7 +89,7 @@ const App: React.FC = () => {
 
   // Search Effect
   useEffect(() => {
-    if (!searchTerm.trim()) {
+    if (!data || !searchTerm.trim()) {
         setFilteredDevices([]);
         return;
     }
@@ -52,7 +100,7 @@ const App: React.FC = () => {
         (d.vendor && d.vendor.toLowerCase().includes(term))
     );
     setFilteredDevices(results.slice(0, 8)); // Limit results
-  }, [searchTerm, data.data.devices.records]);
+  }, [searchTerm, data]);
 
   // Clear ping result when node changes
   useEffect(() => {
@@ -255,6 +303,15 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+             {/* Last Update Indicator */}
+             {lastUpdate && (
+               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-full border border-slate-700/50">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-slate-400">
+                    Updated {lastUpdate.toLocaleTimeString()}
+                  </span>
+               </div>
+             )}
              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-full border border-slate-700/50">
                 <Terminal className="w-3 h-3 text-slate-400" />
                 <span className="text-xs text-slate-400 font-mono">v3.0.0</span>
@@ -263,7 +320,38 @@ const App: React.FC = () => {
           </div>
         </header>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+              <p className="text-slate-400 text-sm">Loading topology data...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {loadError && !isLoading && (
+          <div className="flex-1 flex items-center justify-center px-6">
+            <div className="max-w-md w-full glass-panel p-8 rounded-2xl border border-red-500/20 text-center">
+              <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">Failed to Load Data</h3>
+              <p className="text-slate-400 text-sm mb-4">{loadError}</p>
+              <p className="text-slate-500 text-xs mb-6">
+                Make sure the file exists at: <code className="bg-slate-800 px-2 py-1 rounded">/var/www/reactapp/data/raw_data_complete.json</code>
+              </p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-all"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Dashboard Content */}
+        {!isLoading && !loadError && data && (
         <div className="flex-1 overflow-hidden px-6 pb-6 pt-0 relative">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
             
@@ -416,6 +504,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+        )}
       </main>
 
       {/* Input Modal */}
@@ -458,11 +547,14 @@ const App: React.FC = () => {
             <div className="p-5 border-t border-slate-800 bg-slate-900/30 flex justify-end gap-3">
               <button 
                 onClick={() => {
-                  setJsonInput(JSON.stringify(DEFAULT_DATA, null, 2));
+                  if (data) {
+                    setJsonInput(JSON.stringify(data, null, 2));
+                  }
                 }}
                 className="px-4 py-2 text-slate-400 hover:text-white text-sm transition-colors mr-auto hover:bg-white/5 rounded-lg"
+                disabled={!data}
               >
-                Load Default
+                Load Current
               </button>
               <button 
                 onClick={() => setShowInputModal(false)}

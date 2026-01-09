@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetTopo Data Fetch Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+        h1 {
+            color: #3b82f6;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .success {
+            background: #10b98120;
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+        .error {
+            background: #ef444420;
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+        .loading {
+            background: #3b82f620;
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+        pre {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #334155;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .info {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #3b82f6;
+        }
+        .spinner {
+            border: 3px solid #334155;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+        .stat-label {
+            color: #64748b;
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .stat-value {
+            color: #3b82f6;
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌐 NetTopo Visualizer - Data Fetch Test</h1>
+    
+    <div class="info">
+        <strong>Purpose:</strong> This page tests if the topology data file is correctly served by Nginx and can be fetched by the React app.
+        <br><br>
+        <strong>Expected File:</strong> <code>/var/www/reactapp/data/raw_data_complete.json</code>
+        <br>
+        <strong>URL:</strong> <code>/data/raw_data_complete.json</code>
+    </div>
+
+    <button onclick="fetchData()">🔄 Fetch Data</button>
+    <button onclick="startAutoRefresh()">▶️ Start Auto-Refresh (5s)</button>
+    <button onclick="stopAutoRefresh()">⏸️ Stop Auto-Refresh</button>
+
+    <div id="status" class="status loading">
+        <div class="spinner"></div>
+        Ready to fetch data...
+    </div>
+
+    <div class="stats" id="stats" style="display: none;"></div>
+
+    <h2>Response Data:</h2>
+    <pre id="output">Click "Fetch Data" to load topology data...</pre>
+
+    <script>
+        let autoRefreshInterval = null;
+        let fetchCount = 0;
+
+        async function fetchData() {
+            const statusDiv = document.getElementById('status');
+            const outputDiv = document.getElementById('output');
+            const statsDiv = document.getElementById('stats');
+            
+            fetchCount++;
+            
+            // Show loading state
+            statusDiv.className = 'status loading';
+            statusDiv.innerHTML = '<div class="spinner"></div>Fetching data... (Attempt #' + fetchCount + ')';
+            
+            try {
+                const startTime = Date.now();
+                
+                const response = await fetch('/data/raw_data_complete.json', {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+
+                const fetchTime = Date.now() - startTime;
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                // Show success
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = `
+                    ✅ Success! Data fetched successfully
+                    <br>
+                    <small>
+                        Fetch time: ${fetchTime}ms | 
+                        Status: ${response.status} | 
+                        Last update: ${new Date().toLocaleTimeString()}
+                    </small>
+                `;
+
+                // Display formatted JSON
+                outputDiv.textContent = JSON.stringify(data, null, 2);
+
+                // Show statistics
+                if (data.data && data.data.devices && data.data.connections) {
+                    statsDiv.style.display = 'grid';
+                    statsDiv.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-label">Total Devices</div>
+                            <div class="stat-value">${data.data.devices.count}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Connections</div>
+                            <div class="stat-value">${data.data.connections.count}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Export Timestamp</div>
+                            <div class="stat-value" style="font-size: 14px;">
+                                ${new Date(data.export_timestamp).toLocaleString()}
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Fetch Count</div>
+                            <div class="stat-value">${fetchCount}</div>
+                        </div>
+                    `;
+                } else {
+                    statsDiv.style.display = 'none';
+                }
+
+            } catch (error) {
+                // Show error
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = `
+                    ❌ Error: ${error.message}
+                    <br><br>
+                    <strong>Troubleshooting:</strong>
+                    <br>
+                    1. Check if file exists: <code>ls -la /var/www/reactapp/data/raw_data_complete.json</code>
+                    <br>
+                    2. Test directly: <code>curl http://localhost:3000/data/raw_data_complete.json</code>
+                    <br>
+                    3. Check Nginx logs: <code>sudo tail -f /var/log/nginx/error.log</code>
+                    <br>
+                    4. Verify Nginx config is correct and restarted
+                `;
+
+                outputDiv.textContent = 'Error fetching data. See status above for details.';
+                statsDiv.style.display = 'none';
+            }
+        }
+
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                alert('Auto-refresh is already running!');
+                return;
+            }
+
+            fetchData(); // Initial fetch
+            autoRefreshInterval = setInterval(fetchData, 5000); // Every 5 seconds
+            
+            const statusDiv = document.getElementById('status');
+            const originalHTML = statusDiv.innerHTML;
+            statusDiv.innerHTML = originalHTML + '<br><small style="color: #10b981;">🔄 Auto-refresh enabled (every 5 seconds)</small>';
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                alert('Auto-refresh stopped');
+            } else {
+                alert('Auto-refresh is not running');
+            }
+        }
+
+        // Fetch data on page load
+        window.addEventListener('load', fetchData);
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', stopAutoRefresh);
+    </script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+{
+  "export_timestamp": "2026-01-09T10:00:00.000000",
+  "export_type": "COMPLETE_RAW_SCAN_DATA",
+  "database_source": "network_scanner.db",
+  "data": {
+    "devices": {
+      "count": 5,
+      "records": [
+        {
+          "id": 1,
+          "ip": "192.168.1.1",
+          "name": "Main Switch",
+          "type": "Switch",
+          "detection_method": "SNMP",
+          "mac": "00:11:22:33:44:55",
+          "confidence": 95,
+          "network": "192.168.1.0/24",
+          "vendor": "Cisco Systems",
+          "last_seen": "2026-01-09T10:00:00",
+          "name_source": "DNS",
+          "netbios_domain": null,
+          "logged_in_user": null
+        },
+        {
+          "id": 2,
+          "ip": "192.168.1.10",
+          "name": "Workstation-01",
+          "type": "ACTIVE_HOST",
+          "detection_method": "PING_SNMP",
+          "mac": "AA:BB:CC:DD:EE:01",
+          "confidence": 85,
+          "network": "192.168.1.0/24",
+          "vendor": "Intel Corporate",
+          "last_seen": "2026-01-09T10:00:00",
+          "name_source": "NetBIOS",
+          "netbios_domain": "WORKGROUP",
+          "logged_in_user": "john.doe"
+        },
+        {
+          "id": 3,
+          "ip": "192.168.1.11",
+          "name": "Workstation-02",
+          "type": "ACTIVE_HOST",
+          "detection_method": "PING_ONLY",
+          "mac": "AA:BB:CC:DD:EE:02",
+          "confidence": 70,
+          "network": "192.168.1.0/24",
+          "vendor": "Dell Inc.",
+          "last_seen": "2026-01-09T09:55:00",
+          "name_source": "DNS",
+          "netbios_domain": null,
+          "logged_in_user": null
+        },
+        {
+          "id": 4,
+          "ip": "192.168.1.50",
+          "name": "Android-Phone",
+          "type": "Android_DEVICE",
+          "detection_method": "PING_ONLY",
+          "mac": "AA:BB:CC:DD:EE:03",
+          "confidence": 60,
+          "network": "192.168.1.0/24",
+          "vendor": "Samsung Electronics",
+          "last_seen": "2026-01-09T09:58:00",
+          "name_source": "DHCP",
+          "netbios_domain": null,
+          "logged_in_user": null
+        },
+        {
+          "id": 5,
+          "ip": "192.168.1.100",
+          "name": "Server-01",
+          "type": "ACTIVE_HOST",
+          "detection_method": "SNMP",
+          "mac": "AA:BB:CC:DD:EE:04",
+          "confidence": 90,
+          "network": "192.168.1.0/24",
+          "vendor": "HP Enterprise",
+          "last_seen": "2026-01-09T10:00:00",
+          "name_source": "DNS",
+          "netbios_domain": null,
+          "logged_in_user": null
+        }
+      ]
+    },
+    "connections": {
+      "count": 4,
+      "records": [
+        {
+          "id": 1,
+          "device_id": 1,
+          "port_name": "GigabitEthernet0/1",
+          "port_alias": "Uplink Port 1",
+          "port_status": "UP",
+          "mac_address": "AA:BB:CC:DD:EE:01",
+          "ip_address": "192.168.1.10",
+          "vendor": "Intel Corporate",
+          "status": "ACTIVE"
+        },
+        {
+          "id": 2,
+          "device_id": 1,
+          "port_name": "GigabitEthernet0/2",
+          "port_alias": "Uplink Port 2",
+          "port_status": "UP",
+          "mac_address": "AA:BB:CC:DD:EE:02",
+          "ip_address": "192.168.1.11",
+          "vendor": "Dell Inc.",
+          "status": "ACTIVE"
+        },
+        {
+          "id": 3,
+          "device_id": 1,
+          "port_name": "GigabitEthernet0/3",
+          "port_alias": "Wireless AP",
+          "port_status": "UP",
+          "mac_address": "AA:BB:CC:DD:EE:03",
+          "ip_address": "192.168.1.50",
+          "vendor": "Samsung Electronics",
+          "status": "ACTIVE"
+        },
+        {
+          "id": 4,
+          "device_id": 1,
+          "port_name": "GigabitEthernet0/4",
+          "port_alias": "Server Link",
+          "port_status": "UP",
+          "mac_address": "AA:BB:CC:DD:EE:04",
+          "ip_address": "192.168.1.100",
+          "vendor": "HP Enterprise",
+          "status": "ACTIVE"
+        }
+      ]
+    },
+    "neighbors": {
+      "count": 0,
+      "records": []
+    },
+    "scan_metadata": [
+      {
+        "id": 1,
+        "start_time": "2026-01-09T09:55:00",
+        "end_time": "2026-01-09T10:00:00",
+        "total_devices": 5,
+        "total_networks": 1,
+        "snmp_version": "v2c",
+        "community": "public"
+      }
+    ],
+    "scan_state": {
+      "count": 1,
+      "records": [
+        {
+          "id": 1,
+          "network": "192.168.1.0/24",
+          "device": "192.168.1.1",
+          "scan_time": "2026-01-09T10:00:00"
+        }
+      ]
+    },
+    "device_type_breakdown": {
+      "Switch": 1,
+      "ACTIVE_HOST": 3,
+      "Android_DEVICE": 1
+    },
+    "vendor_breakdown": {
+      "Cisco Systems": 1,
+      "Intel Corporate": 1,
+      "Dell Inc.": 1,
+      "Samsung Electronics": 1,
+      "HP Enterprise": 1
+    },
+    "name_resolution_sources": {
+      "DNS": 3,
+      "NetBIOS": 1,
+      "DHCP": 1
+    },
+    "confidence_distribution": {
+      "90-100": 2,
+      "70-89": 2,
+      "50-69": 1
+    },
+    "port_analysis": {
+      "192.168.1.1": {
+        "total_ports": 24,
+        "active_ports": 4
+      }
+    }
+  }
+}
