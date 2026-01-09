@@ -87,6 +87,38 @@ const App: React.FC = () => {
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [deviceLogs, setDeviceLogs] = useState<any[]>([]);
 
+  // Polling Effect
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchData = async () => {
+      try {
+        const res = await fetch("/data/raw_data_complete.json", {
+          cache: "no-store"
+        });
+
+        if (!res.ok) {
+           return;
+        }
+
+        const json = await res.json();
+        if (isMounted) {
+          setData(json);
+        }
+      } catch (err) {
+        console.error("Failed to fetch JSON", err);
+      }
+    };
+
+    fetchData(); // initial load
+    const interval = setInterval(fetchData, 5000); // every 5 seconds
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   // Search Effect
   useEffect(() => {
     if (!data || !searchTerm.trim()) {
