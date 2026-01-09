@@ -3,7 +3,7 @@ import TopologyGraph from './components/TopologyGraph';
 import StatsPanel from './components/StatsPanel';
 import DeviceList from './components/DeviceList';
 import { RawNetworkData, GraphNode, DeviceRecord } from './types';
-import { LayoutDashboard, Network, List, Upload, Zap, Activity, Info, X, Search, Terminal, Loader2, CheckCircle2, AlertCircle, FileText, Download, ArrowRight, Shield } from 'lucide-react';
+import { LayoutDashboard, Network, List, Upload, Zap, Activity, Info, X, Search, Terminal, Loader2, CheckCircle2, AlertCircle, FileText, Download, ArrowRight, Shield, RefreshCw } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 // Helper to Create GraphNode for consistency
@@ -37,74 +37,71 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredDevices, setFilteredDevices] = useState<DeviceRecord[]>([]);
 
-  // Fetch topology data from JSON file (try multiple locations and poll)
-  useEffect(() => {
+  // Fetch topology data from JSON file (manual refresh only)
+  const fetchTopologyData = async () => {
     // Allow runtime configuration via Vite env vars:
     // - VITE_TOPOLOGY_URL (single URL)
     // - VITE_TOPOLOGY_URLS (comma-separated URLs, tried in order)
-    // - VITE_POLL_INTERVAL_MS (poll interval in ms)
     const env = (import.meta as any).env || {};
     const rawUrls = env.VITE_TOPOLOGY_URLS ?? env.VITE_TOPOLOGY_URL;
     const DEFAULT_URLS = ['/data/raw_data_complete.json', '/raw_data_complete.json', 'http://127.0.0.1/data/raw_data_complete.json', 'http://127.0.0.1/raw_data_complete.json'];
     const DATA_URLS = rawUrls ? String(rawUrls).split(',').map((s: string) => s.trim()).filter(Boolean) : DEFAULT_URLS;
-    const POLL_MS = Number(env.VITE_POLL_INTERVAL_MS) || 5000;
 
-    const fetchTopologyData = async () => {
-      setIsLoading(true);
-      setLoadError(null);
+    setIsLoading(true);
+    setLoadError(null);
 
-      for (const url of DATA_URLS) {
-        try {
-          const response = await fetch(url, {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-          });
+    for (const url of DATA_URLS) {
+      try {
+        const response = await fetch(url, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
 
-          if (!response.ok) {
-            continue; // try next URL
-          }
+        if (!response.ok) {
+          continue; // try next URL
+        }
 
-          const contentType = response.headers.get('content-type') || '';
-          const text = await response.text();
+        const contentType = response.headers.get('content-type') || '';
+        const text = await response.text();
 
-          // Prefer Content-Type check to avoid attempting to parse HTML (dev server index)
-          if (!/json/i.test(contentType) && !text.trim().startsWith('{') && !text.trim().startsWith('[')) {
-            console.debug(`Skipping non-JSON response from ${url} (content-type: ${contentType})`);
-            continue;
-          }
-
-          let jsonData: any;
-          try {
-            jsonData = JSON.parse(text);
-          } catch (e) {
-            console.debug(`Invalid JSON at ${url}:`, e);
-            continue;
-          }
-
-          if (!jsonData.data || !jsonData.data.devices || !jsonData.data.connections) {
-            console.debug(`Fetched JSON from ${url} missing required fields; trying next`);
-            continue;
-          }
-
-          setData(jsonData as RawNetworkData);
-          setLastUpdate(new Date());
-          setIsLoading(false);
-          setLoadError(null);
-          return; // success
-        } catch (err) {
-          // network error; try next URL
+        // Prefer Content-Type check to avoid attempting to parse HTML (dev server index)
+        if (!/json/i.test(contentType) && !text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+          console.debug(`Skipping non-JSON response from ${url} (content-type: ${contentType})`);
           continue;
         }
+
+        let jsonData: any;
+        try {
+          jsonData = JSON.parse(text);
+        } catch (e) {
+          console.debug(`Invalid JSON at ${url}:`, e);
+          continue;
+        }
+
+        if (!jsonData.data || !jsonData.data.devices || !jsonData.data.connections) {
+          console.debug(`Fetched JSON from ${url} missing required fields; trying next`);
+          continue;
+        }
+
+        setData(jsonData as RawNetworkData);
+        setLastUpdate(new Date());
+        setIsLoading(false);
+        setLoadError(null);
+        return; // success
+      } catch (err) {
+        // network error; try next URL
+        continue;
       }
+    }
 
-      // No URL worked
-      setIsLoading(false);
-      setLoadError('Failed to load topology JSON from known locations');
-    };
+    // No URL worked
+    setIsLoading(false);
+    setLoadError('Failed to load topology JSON from known locations');
+  };
 
+  // Load data once on mount
+  useEffect(() => {
     fetchTopologyData();
-    const interval = setInterval(fetchTopologyData, POLL_MS);
-    return () => clearInterval(interval);
   }, []);
 
   // Action States
@@ -331,6 +328,17 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+             {/* Refresh Button */}
+             <button
+               onClick={fetchTopologyData}
+               disabled={isLoading}
+               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-all shadow-lg hover:shadow-blue-500/50 group"
+               title="Refresh Data"
+             >
+               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+               <span className="hidden sm:inline">Refresh</span>
+             </button>
+             
              {/* Last Update Indicator */}
              {lastUpdate && (
                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-full border border-slate-700/50">
@@ -358,9 +366,10 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Error State */}
-        {loadError && !isLoading && (
-          <div className="flex-1 flex items-center justify-center px-6">
+        {/* Error State *fetchTopologyData}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-all flex items-center gap-2 mx-auto"
+              >
+                <RefreshCw className="w-4 h-4" / className="flex-1 flex items-center justify-center px-6">
             <div className="max-w-md w-full glass-panel p-8 rounded-2xl border border-red-500/20 text-center">
               <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">Failed to Load Data</h3>

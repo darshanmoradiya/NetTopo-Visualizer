@@ -8,7 +8,7 @@ A real-time, interactive network topology visualization tool built with React, D
 
 ## ✨ Features
 
-- 🔄 **Real-time Updates**: Auto-fetches topology data every 5 seconds
+- 🔄 **Manual Refresh**: Click refresh button to load latest topology data
 - 🎨 **Interactive D3.js Graph**: Force-directed layout with zoom, pan, and drag
 - 🎯 **Hub-and-Spoke Layout**: Automatically identifies main switch/hub
 - 🔍 **Global Search**: Find devices by name, IP, or vendor
@@ -16,6 +16,7 @@ A real-time, interactive network topology visualization tool built with React, D
 - 🎭 **Node Types**: Different visuals for switches, hosts, mobile devices, and L2-only devices
 - 📱 **Responsive Design**: Works on desktop and tablets
 - 🌙 **Dark Theme**: Beautiful glassmorphic UI with Tailwind CSS
+- 🔄 **Auto-Update Backend**: Systemd timer copies latest scan data every 5 minutes
 
 ## 🚀 Quick Start
 
@@ -37,21 +38,26 @@ npm run dev
 
 See the complete [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed instructions.
 
-**Quick Deploy:**
+**Quick Deploy with Live Scan Data:**
 
 ```bash
-# Build the app
+# 1. Copy to Linux filesystem
+cp -r /mnt/hgfs/sharedfolder/shared\ net\ topo/NetTopo-Visualizer ~/NetTopo-Visualizer
+cd ~/NetTopo-Visualizer
+
+# 2. Build and deploy
+npm install
 npm run build
+sudo ./deploy.sh
 
-# Deploy to Nginx
-sudo cp -r dist/* /var/www/reactapp/
-
-# Create data directory
-sudo mkdir -p /var/www/reactapp/data
-
-# Place your JSON file
-sudo cp your_topology_data.json /var/www/reactapp/data/raw_data_complete.json
+# 3. Setup auto-updates (one command, no more passwords!)
+chmod +x SETUP_ONCE.sh
+sudo bash SETUP_ONCE.sh
 ```
+
+This configures automatic updates from `/opt/eagleyesocradar/scans/` every 5 minutes.
+
+See [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md) for live scan data integration.
 
 ## 📂 Project Structure
 
