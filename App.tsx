@@ -183,7 +183,7 @@ const App: React.FC = () => {
         <header className="h-20 flex items-center px-8 justify-between z-20 shrink-0">
           <div>
             <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight flex items-center gap-2">
-                eagleyesoc <span className="text-blue-500">Radar</span>
+                Eagleyesoc <span className="text-blue-500">Radar</span>
             </h1>
             <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1 font-mono uppercase tracking-widest">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
