@@ -37,47 +37,73 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredDevices, setFilteredDevices] = useState<DeviceRecord[]>([]);
 
-  // Fetch topology data from JSON file
+  // Fetch topology data from JSON file (try multiple locations and poll)
   useEffect(() => {
+    // Allow runtime configuration via Vite env vars:
+    // - VITE_TOPOLOGY_URL (single URL)
+    // - VITE_TOPOLOGY_URLS (comma-separated URLs, tried in order)
+    // - VITE_POLL_INTERVAL_MS (poll interval in ms)
+    const env = (import.meta as any).env || {};
+    const rawUrls = env.VITE_TOPOLOGY_URLS ?? env.VITE_TOPOLOGY_URL;
+    const DEFAULT_URLS = ['/data/raw_data_complete.json', '/raw_data_complete.json', 'http://127.0.0.1/data/raw_data_complete.json', 'http://127.0.0.1/raw_data_complete.json'];
+    const DATA_URLS = rawUrls ? String(rawUrls).split(',').map((s: string) => s.trim()).filter(Boolean) : DEFAULT_URLS;
+    const POLL_MS = Number(env.VITE_POLL_INTERVAL_MS) || 5000;
+
     const fetchTopologyData = async () => {
-      try {
-        setLoadError(null);
-        const response = await fetch('/data/raw_data_complete.json', { 
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+      setIsLoading(true);
+      setLoadError(null);
+
+      for (const url of DATA_URLS) {
+        try {
+          const response = await fetch(url, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+          });
+
+          if (!response.ok) {
+            continue; // try next URL
           }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch topology data: ${response.status} ${response.statusText}`);
+
+          const contentType = response.headers.get('content-type') || '';
+          const text = await response.text();
+
+          // Prefer Content-Type check to avoid attempting to parse HTML (dev server index)
+          if (!/json/i.test(contentType) && !text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+            console.debug(`Skipping non-JSON response from ${url} (content-type: ${contentType})`);
+            continue;
+          }
+
+          let jsonData: any;
+          try {
+            jsonData = JSON.parse(text);
+          } catch (e) {
+            console.debug(`Invalid JSON at ${url}:`, e);
+            continue;
+          }
+
+          if (!jsonData.data || !jsonData.data.devices || !jsonData.data.connections) {
+            console.debug(`Fetched JSON from ${url} missing required fields; trying next`);
+            continue;
+          }
+
+          setData(jsonData as RawNetworkData);
+          setLastUpdate(new Date());
+          setIsLoading(false);
+          setLoadError(null);
+          return; // success
+        } catch (err) {
+          // network error; try next URL
+          continue;
         }
-        
-        const jsonData = await response.json();
-        
-        // Validate data structure
-        if (!jsonData.data || !jsonData.data.devices || !jsonData.data.connections) {
-          throw new Error('Invalid data format: missing required fields');
-        }
-        
-        setData(jsonData);
-        setLastUpdate(new Date());
-        setIsLoading(false);
-        
-      } catch (error) {
-        console.error('Error fetching topology data:', error);
-        setLoadError(error instanceof Error ? error.message : 'Unknown error occurred');
-        setIsLoading(false);
       }
+
+      // No URL worked
+      setIsLoading(false);
+      setLoadError('Failed to load topology JSON from known locations');
     };
 
-    // Initial fetch
     fetchTopologyData();
-    
-    // Poll every 5 seconds for updates
-    const interval = setInterval(fetchTopologyData, 5000);
-    
+    const interval = setInterval(fetchTopologyData, POLL_MS);
     return () => clearInterval(interval);
   }, []);
 
@@ -87,37 +113,7 @@ const App: React.FC = () => {
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [deviceLogs, setDeviceLogs] = useState<any[]>([]);
 
-  // Polling Effect
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/data/raw_data_complete.json", {
-          cache: "no-store"
-        });
-
-        if (!res.ok) {
-           return;
-        }
-
-        const json = await res.json();
-        if (isMounted) {
-          setData(json);
-        }
-      } catch (err) {
-        console.error("Failed to fetch JSON", err);
-      }
-    };
-
-    fetchData(); // initial load
-    const interval = setInterval(fetchData, 5000); // every 5 seconds
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+  
 
   // Search Effect
   useEffect(() => {
