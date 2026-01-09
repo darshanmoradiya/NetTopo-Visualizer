@@ -90,6 +90,19 @@ export interface RawNetworkData {
     name_resolution_sources: Record<string, number>;
     confidence_distribution: Record<string, number>;
     port_analysis: PortAnalysis;
+    all_unique_macs?: {
+      count: number;
+      list: string[];
+    };
+    all_discovered_ips?: {
+      count: number;
+      list: string[];
+    };
+    domain_workgroup_breakdown?: Record<string, number>;
+    logged_in_users?: {
+      count: number;
+      list: string[];
+    };
   };
 }
 
